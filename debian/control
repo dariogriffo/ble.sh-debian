@@ -1,0 +1,28 @@
+Source: ble.sh
+Section: shells
+Priority: optional
+Maintainer: Dario Griffo <dariogriffo@gmail.com>
+Build-Depends: debhelper-compat (= 13)
+Standards-Version: 4.6.2
+Homepage: https://github.com/akinomyoga/ble.sh
+Rules-Requires-Root: no
+
+Package: ble.sh
+Architecture: all
+Depends: procps, ${misc:Depends}
+Suggests: ble.sh-airline-themes
+Description: Bash Line Editor -- a line editor written in pure Bash
+ Bash Line Editor (ble.sh) is a command line editor written in pure Bash which
+ replaces the default GNU Readline, enabling syntax highlighting, auto
+ suggestions, vim modes, etc. in Bash interactive sessions.
+ .
+ This package ships the upstream nightly snapshot, which is already the
+ generated install tree; at runtime it only needs ps (procps) beyond the
+ essential packages.
+
+Package: ble.sh-airline-themes
+Architecture: all
+Depends: ble.sh (= ${binary:Version}), ${misc:Depends}
+Description: Airline themes for ble.sh
+ Adopted from vim-airline's official theme collection and used by Bash Line
+ Editor (ble.sh)'s imitation of the vim-airline status line.

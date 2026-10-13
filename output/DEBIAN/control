@@ -1,0 +1,16 @@
+Section: shells
+Priority: optional
+Maintainer: Dario Griffo <dariogriffo@gmail.com>
+Homepage: https://github.com/akinomyoga/ble.sh
+Package: ble.sh
+Version: BLESH_VERSION-BUILD_VERSION~DIST
+Architecture: SUPPORTED_ARCHITECTURES
+Depends: procps
+Suggests: ble.sh-airline-themes
+Description: Bash Line Editor -- a line editor written in pure Bash
+ Bash Line Editor (ble.sh) is a command line editor written in pure Bash which
+ replaces the default GNU Readline, enabling syntax highlighting, auto
+ suggestions, vim modes, etc. in Bash interactive sessions.
+ .
+ Enable it by sourcing /usr/share/blesh/ble.sh from ~/.bashrc, see
+ /usr/share/doc/ble.sh/README.Debian.

@@ -1,0 +1,59 @@
+ARG DEBIAN_DIST=bookworm
+FROM debian:bookworm
+
+ARG DEBIAN_DIST
+ARG BLESH_VERSION
+ARG BUILD_VERSION
+ARG FULL_VERSION
+ARG ARCH
+ARG BLESH_SRC=blesh
+
+# One upstream tree, two packages (same split as Debian):
+#   /output         -> ble.sh                 (the line editor itself)
+#   /output-airline -> ble.sh-airline-themes  (contrib/airline, MIT, from vim-airline)
+RUN mkdir -p /output/usr/share/blesh
+RUN mkdir -p /output/usr/share/doc/ble.sh
+RUN mkdir -p /output/DEBIAN
+RUN mkdir -p /output-airline/usr/share/blesh/contrib
+RUN mkdir -p /output-airline/usr/share/doc/ble.sh-airline-themes
+RUN mkdir -p /output-airline/DEBIAN
+
+COPY ${BLESH_SRC}/ble.sh /output/usr/share/blesh/ble.sh
+COPY ${BLESH_SRC}/lib /output/usr/share/blesh/lib
+COPY ${BLESH_SRC}/contrib /output/usr/share/blesh/contrib
+COPY ${BLESH_SRC}/doc /output/usr/share/doc/ble.sh
+COPY debian/_package.bash /output/usr/share/blesh/lib/_package.bash
+COPY debian/README.Debian /output/usr/share/doc/ble.sh/README.Debian
+COPY output/DEBIAN/control /output/DEBIAN/
+COPY output/DEBIAN/postinst /output/DEBIAN/postinst
+COPY output/DEBIAN/postrm /output/DEBIAN/postrm
+COPY output/copyright /output/usr/share/doc/ble.sh/
+COPY output/changelog.Debian /output/usr/share/doc/ble.sh/
+COPY output/airline-themes/DEBIAN/control /output-airline/DEBIAN/
+COPY output/airline-themes/DEBIAN/postinst /output-airline/DEBIAN/postinst
+COPY output/airline-themes/copyright /output-airline/usr/share/doc/ble.sh-airline-themes/
+COPY output/changelog.Debian /output-airline/usr/share/doc/ble.sh-airline-themes/
+
+RUN mv /output/usr/share/blesh/contrib/airline /output-airline/usr/share/blesh/contrib/airline
+RUN chmod 755 /output/DEBIAN/postinst /output/DEBIAN/postrm /output-airline/DEBIAN/postinst
+
+RUN for pkg in /output/usr/share/doc/ble.sh /output-airline/usr/share/doc/ble.sh-airline-themes; do \
+      sed -i "s/DIST/$DEBIAN_DIST/" $pkg/changelog.Debian; \
+      sed -i "s/FULL_VERSION/$FULL_VERSION/" $pkg/changelog.Debian; \
+    done
+RUN for ctl in /output/DEBIAN/control /output-airline/DEBIAN/control; do \
+      sed -i "s/DIST/$DEBIAN_DIST/" $ctl; \
+      sed -i "s/BLESH_VERSION/$BLESH_VERSION/" $ctl; \
+      sed -i "s/BUILD_VERSION/$BUILD_VERSION/" $ctl; \
+      sed -i "s/SUPPORTED_ARCHITECTURES/$ARCH/" $ctl; \
+    done
+
+# Everything is sourced by bash, never executed: plain 644 files, 755 dirs.
+# Debian expects docs larger than 4 KiB (and the changelog) to be compressed.
+RUN chmod -R u=rwX,go=rX /output/usr /output-airline/usr
+RUN find /output/usr/share/doc/ble.sh -type f -size +4k ! -name copyright -exec gzip -9n {} +
+RUN gzip -9n /output/usr/share/doc/ble.sh/changelog.Debian \
+    /output-airline/usr/share/doc/ble.sh-airline-themes/changelog.Debian
+
+RUN dpkg-deb --build /output /ble.sh_${FULL_VERSION}.deb
+RUN dpkg-deb --build /output-airline /ble.sh-airline-themes_${FULL_VERSION}.deb

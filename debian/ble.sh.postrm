@@ -1,0 +1,16 @@
+#!/bin/sh
+set -e
+
+# ble.sh keeps its cache in ~/.cache/blesh, but when that directory does not
+# exist and /usr/share/blesh is writable (i.e. running as root) it falls back
+# to cache.d/ and run/ next to itself. Those are not owned by the package.
+case "$1" in
+    remove|purge)
+        rm -rf /usr/share/blesh/cache.d /usr/share/blesh/run
+        rmdir --ignore-fail-on-non-empty /usr/share/blesh 2>/dev/null || true
+        ;;
+esac
+
+#DEBHELPER#
+
+exit 0

@@ -1,0 +1,19 @@
+# .deb Packages
+*.deb
+
+# Source packages
+*.dsc
+*.orig.tar.xz
+*.debian.tar.xz
+
+# Extracted upstream release tarball
+/blesh/
+/ble-nightly-*/
+ble-nightly-*.tar.xz
+
+# Extracted .deb contents (tar -xf of the docker cp stream)
+/usr/
+/DEBIAN/
+
+.idea/*
+.DS_Store

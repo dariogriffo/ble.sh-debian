@@ -1,0 +1,92 @@
+name: Build ble.sh for Debian
+
+on:
+  workflow_dispatch:
+    inputs:
+      blesh_version:
+        description: The ble.sh nightly snapshot to build (e.g. 0.4.0-git20260908.d81fd54).
+        type: string
+        required: true
+      build_version:
+        description: The build version.
+        type: string
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-blesh:
+    name: Build Binary Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ble.sh-debian
+        uses: actions/checkout@v4
+
+      - name: Validate upstream license permits paid distribution
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          BLESH_VERSION: ${{ inputs.blesh_version }}
+        # Nightly snapshots have no upstream tag: check the license at the
+        # exact snapshot commit (the <sha> in 0.4.0-git<date>.<sha>).
+        run: LICENSE_REF="${BLESH_VERSION##*.}" ./validate_license.sh "$BLESH_VERSION"
+
+      - name: Build ble.sh
+        run: ./build_debian.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }} && ./build_ubuntu.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }}
+
+      - name: Upload Binary Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: binary-artifact
+          path: ble.sh*.deb
+
+  build-src:
+    name: Build Source Packages
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout ble.sh-debian
+        uses: actions/checkout@v4
+
+      - name: Install dpkg-dev
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends dpkg-dev devscripts wget ca-certificates
+
+      - name: Build source packages
+        run: ./build_src.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }}
+
+      - name: Upload Source Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-artifact
+          path: |
+            ble.sh_*.dsc
+            ble.sh_*.orig.tar.xz
+            ble.sh*.debian.tar.xz
+
+  release-blesh:
+    name: Release ble.sh for Debian
+    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    needs: [build-blesh, build-src]
+    steps:
+      - name: Download Binary Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: binary-artifact
+
+      - name: Download Source Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: source-artifact
+
+      - name: Publish Release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: false
+          files: |
+            ble.sh*.deb
+            ble.sh_*.dsc
+            ble.sh_*.orig.tar.xz
+            ble.sh*.debian.tar.xz
+          name: ${{ inputs.blesh_version }}+${{ inputs.build_version }}
+          tag_name: ${{ inputs.blesh_version }}+${{ inputs.build_version }}
+          fail_on_unmatched_files: true

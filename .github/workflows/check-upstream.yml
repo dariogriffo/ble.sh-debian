@@ -1,0 +1,82 @@
+name: Check for new ble.sh nightly
+
+on:
+  schedule:
+    # Hourly, offset to avoid the top-of-hour rush. ble.sh's last stable tag
+    # (v0.4.0-devel3) dates from 2023; upstream recommends, and Debian packages,
+    # the rolling "nightly" release, so that is what we chase.
+    - cron: "23 * * * *"
+  workflow_dispatch: {}
+
+# Only one checker at a time.
+concurrency:
+  group: check-upstream
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  actions: write   # required to dispatch release.yml
+
+jobs:
+  check:
+    name: Compare upstream vs published
+    runs-on: ubuntu-latest
+    steps:
+      - name: Detect and dispatch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+
+          # Newest snapshot asset on upstream's rolling "nightly" release,
+          # e.g. ble-nightly-20260908+d81fd54.tar.xz (the undated
+          # ble-nightly.tar.xz alias is skipped by the pattern).
+          ASSET=$(gh api repos/akinomyoga/ble.sh/releases/tags/nightly \
+            -q '[.assets[] | select(.name | test("^ble-nightly-[0-9]{8}\\+[0-9a-f]+\\.tar\\.xz$"))] | sort_by(.created_at) | last | .name')
+          if [ -z "$ASSET" ] || [ "$ASSET" = "null" ]; then
+            echo "No nightly snapshot asset found upstream."
+            exit 1
+          fi
+          SNAPSHOT="${ASSET#ble-nightly-}"; SNAPSHOT="${SNAPSHOT%.tar.xz}"
+          SHA="${SNAPSHOT#*+}"
+
+          # Base version from upstream's GNUmakefile at that commit
+          # (FULLVER := 0.4.0-devel4 -> 0.4.0), so a 0.5 cycle bumps it too.
+          FULLVER=$(curl -fsSL "https://raw.githubusercontent.com/akinomyoga/ble.sh/${SHA}/GNUmakefile" \
+            | sed -n 's/^FULLVER[[:space:]]*:=[[:space:]]*//p' | head -1)
+          BASE="${FULLVER%%-*}"
+          if ! [[ "$BASE" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "Could not read FULLVER from upstream GNUmakefile at $SHA (got '$FULLVER')."
+            exit 1
+          fi
+
+          # 20260908+d81fd54 -> 0.4.0-git20260908.d81fd54
+          UPSTREAM="${BASE}-git${SNAPSHOT%%+*}.${SHA}"
+          echo "Upstream ble.sh: $ASSET -> $UPSTREAM"
+
+          # Our latest published release tag is "<ble.sh>+<build>"
+          # (e.g. 0.4.0-git20260908.d81fd54+1).
+          # 404 (no releases yet) -> empty -> treat as "needs building".
+          OURS=$(gh api repos/${{ github.repository }}/releases/latest -q .tag_name 2>/dev/null || echo "")
+          OURS_BLESH="${OURS%%+*}"
+          echo "Ours: ${OURS:-<none>} (ble.sh part: ${OURS_BLESH:-<none>})"
+
+          if [ "$UPSTREAM" = "$OURS_BLESH" ]; then
+            echo "Up to date, nothing to do."
+            exit 0
+          fi
+
+          # Don't dispatch a duplicate if a build is already running/queued.
+          ACTIVE=$(gh run list --workflow=release.yml \
+            --json status \
+            -q '[.[] | select(.status == "in_progress" or .status == "queued")] | length')
+          if [ "$ACTIVE" -gt 0 ]; then
+            echo "A release.yml run is already active ($ACTIVE); skipping this tick."
+            exit 0
+          fi
+
+          echo "New ble.sh nightly detected: $OURS_BLESH -> $UPSTREAM. Dispatching build."
+          gh workflow run release.yml \
+            -f blesh_version="$UPSTREAM" \
+            -f build_version=1
