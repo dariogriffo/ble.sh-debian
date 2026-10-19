@@ -3,9 +3,9 @@ Priority: optional
 Maintainer: Dario Griffo <dariogriffo@gmail.com>
 Homepage: https://github.com/akinomyoga/ble.sh
 Package: ble.sh-airline-themes
-Version: BLESH_VERSION-BUILD_VERSION~DIST
+Version: BLESH_VERSION-BUILD_VERSION~griffo
 Architecture: SUPPORTED_ARCHITECTURES
-Depends: ble.sh (= BLESH_VERSION-BUILD_VERSION~DIST)
+Depends: ble.sh (= BLESH_VERSION-BUILD_VERSION~griffo)
 Description: Airline themes for ble.sh
  Adopted from vim-airline's official theme collection and used by Bash Line
  Editor (ble.sh)'s imitation of the vim-airline status line.

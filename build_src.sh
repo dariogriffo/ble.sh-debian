@@ -14,12 +14,26 @@ PACKAGE_NAME="ble.sh"
 ORIG_TARBALL="${PACKAGE_NAME}_${BLESH_VERSION}.orig.tar.xz"
 BUILD_DIR="${PACKAGE_NAME}-${BLESH_VERSION}"
 
-echo "Creating Debian/Ubuntu source packages for ble.sh ${BLESH_VERSION}-${BUILD_VERSION}..."
+echo "Creating the source package for ble.sh ${BLESH_VERSION}-${BUILD_VERSION}..."
 
 # Our version is 0.4.0-git<date>.<sha>; upstream publishes that snapshot as
 # ble-nightly-<date>+<sha>.tar.xz on its rolling "nightly" release.
 SNAPSHOT="${BLESH_VERSION##*-git}"
 NIGHTLY="ble-nightly-${SNAPSHOT%%.*}+${SNAPSHOT#*.}"
+
+# A rebuild of an upstream version already released here (a +N build bump)
+# must ship the very same orig tarball: the pool holds one per upstream
+# version and reprepro refuses a different one, and the repack below is not
+# byte-reproducible. Reuse the earlier release's copy.
+if [ ! -f "$ORIG_TARBALL" ]; then
+    for ((b = BUILD_VERSION - 1; b >= 1; b--)); do
+        if wget -q "https://github.com/dariogriffo/ble.sh-debian/releases/download/${BLESH_VERSION}%2B${b}/${ORIG_TARBALL}" -O "$ORIG_TARBALL"; then
+            echo "  Reusing $ORIG_TARBALL from release ${BLESH_VERSION}+${b}"
+            break
+        fi
+        rm -f "$ORIG_TARBALL"
+    done
+fi
 
 # Download the upstream nightly tarball (shared .orig.tar.xz across all
 # distributions). It is already the generated install tree, so debian/rules
@@ -45,10 +59,9 @@ else
 fi
 
 build_source_package() {
-    local dist=$1
-    local FULL_VERSION="${BLESH_VERSION}-${BUILD_VERSION}~${dist}"
+    local FULL_VERSION="${BLESH_VERSION}-${BUILD_VERSION}~griffo"
 
-    echo "  Building source package for ${dist} (${FULL_VERSION})..."
+    echo "  Building source package ${FULL_VERSION}..."
 
     # Clean and recreate build directory from orig tarball
     rm -rf "$BUILD_DIR"
@@ -57,9 +70,9 @@ build_source_package() {
     # Copy Debian packaging directory
     cp -r debian "$BUILD_DIR/"
 
-    # Generate distribution-specific changelog (overwrites placeholder)
+    # Generate the changelog (overwrites placeholder)
     cat > "$BUILD_DIR/debian/changelog" << EOF
-ble.sh (${FULL_VERSION}) ${dist}; urgency=medium
+ble.sh (${FULL_VERSION}) stable; urgency=medium
 
   * New upstream nightly snapshot ${BLESH_VERSION}.
 
@@ -74,18 +87,8 @@ EOF
 }
 
 echo ""
-echo "Building Debian source packages..."
-DEBIAN_DISTS=("bookworm" "trixie" "forky" "sid")
-for dist in "${DEBIAN_DISTS[@]}"; do
-    build_source_package "$dist"
-done
-
-echo ""
-echo "Building Ubuntu source packages..."
-UBUNTU_DISTS=("jammy" "noble" "questing" "resolute")
-for dist in "${UBUNTU_DISTS[@]}"; do
-    build_source_package "$dist"
-done
+# One source package for every suite, as with the binaries (see build_debian.sh).
+build_source_package
 
 echo ""
 echo "🎉 Source packages created successfully!"

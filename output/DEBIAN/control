@@ -3,7 +3,7 @@ Priority: optional
 Maintainer: Dario Griffo <dariogriffo@gmail.com>
 Homepage: https://github.com/akinomyoga/ble.sh
 Package: ble.sh
-Version: BLESH_VERSION-BUILD_VERSION~DIST
+Version: BLESH_VERSION-BUILD_VERSION~griffo
 Architecture: SUPPORTED_ARCHITECTURES
 Depends: procps
 Suggests: ble.sh-airline-themes

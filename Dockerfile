@@ -1,7 +1,5 @@
-ARG DEBIAN_DIST=bookworm
 FROM debian:bookworm
 
-ARG DEBIAN_DIST
 ARG BLESH_VERSION
 ARG BUILD_VERSION
 ARG FULL_VERSION
@@ -38,11 +36,9 @@ RUN mv /output/usr/share/blesh/contrib/airline /output-airline/usr/share/blesh/c
 RUN chmod 755 /output/DEBIAN/postinst /output/DEBIAN/postrm /output-airline/DEBIAN/postinst
 
 RUN for pkg in /output/usr/share/doc/ble.sh /output-airline/usr/share/doc/ble.sh-airline-themes; do \
-      sed -i "s/DIST/$DEBIAN_DIST/" $pkg/changelog.Debian; \
       sed -i "s/FULL_VERSION/$FULL_VERSION/" $pkg/changelog.Debian; \
     done
 RUN for ctl in /output/DEBIAN/control /output-airline/DEBIAN/control; do \
-      sed -i "s/DIST/$DEBIAN_DIST/" $ctl; \
       sed -i "s/BLESH_VERSION/$BLESH_VERSION/" $ctl; \
       sed -i "s/BUILD_VERSION/$BUILD_VERSION/" $ctl; \
       sed -i "s/SUPPORTED_ARCHITECTURES/$ARCH/" $ctl; \
@@ -55,5 +51,5 @@ RUN find /output/usr/share/doc/ble.sh -type f -size +4k ! -name copyright -exec 
 RUN gzip -9n /output/usr/share/doc/ble.sh/changelog.Debian \
     /output-airline/usr/share/doc/ble.sh-airline-themes/changelog.Debian
 
-RUN dpkg-deb --build /output /ble.sh_${FULL_VERSION}.deb
-RUN dpkg-deb --build /output-airline /ble.sh-airline-themes_${FULL_VERSION}.deb
+RUN dpkg-deb -Zxz --build /output /ble.sh_${FULL_VERSION}.deb
+RUN dpkg-deb -Zxz --build /output-airline /ble.sh-airline-themes_${FULL_VERSION}.deb

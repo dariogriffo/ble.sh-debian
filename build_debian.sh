@@ -8,7 +8,7 @@ if [ -z "$BLESH_VERSION" ] || [ -z "$BUILD_VERSION" ]; then
 fi
 
 # ble.sh is written in pure Bash, so a single Architecture: all package covers
-# every Debian architecture (amd64, arm64, armel, armhf, i386, ppc64el,
+# every Debian and Ubuntu architecture (amd64, arm64, armel, armhf, i386, ppc64el,
 # riscv64, s390x, ...).
 ARCH="all"
 BLESH_SRC="blesh"
@@ -52,35 +52,33 @@ build_packages() {
         return 1
     fi
 
-    declare -a arr=("bookworm" "trixie" "forky" "sid")
+    # One pair of packages for every suite: ble.sh is pure Bash, so only the
+    # old ~<suite> version suffix ever differed. The fixed ~griffo keeps it
+    # below the distro's own build of the same version.
+    FULL_VERSION="$BLESH_VERSION-${BUILD_VERSION}~griffo_${ARCH}"
+    echo "  Building $FULL_VERSION"
 
-    for dist in "${arr[@]}"; do
-        FULL_VERSION="$BLESH_VERSION-${BUILD_VERSION}~${dist}_${ARCH}"
-        echo "  Building $FULL_VERSION"
+    if ! docker build . -t "blesh-$ARCH" \
+        --build-arg BLESH_VERSION="$BLESH_VERSION" \
+        --build-arg BUILD_VERSION="$BUILD_VERSION" \
+        --build-arg FULL_VERSION="$FULL_VERSION" \
+        --build-arg ARCH="$ARCH" \
+        --build-arg BLESH_SRC="$BLESH_SRC"; then
+        echo "❌ Failed to build Docker image"
+        return 1
+    fi
 
-        if ! docker build . -t "blesh-$dist-$ARCH" \
-            --build-arg DEBIAN_DIST="$dist" \
-            --build-arg BLESH_VERSION="$BLESH_VERSION" \
-            --build-arg BUILD_VERSION="$BUILD_VERSION" \
-            --build-arg FULL_VERSION="$FULL_VERSION" \
-            --build-arg ARCH="$ARCH" \
-            --build-arg BLESH_SRC="$BLESH_SRC"; then
-            echo "❌ Failed to build Docker image for $dist"
+    id="$(docker create "blesh-$ARCH")"
+    for pkg in ble.sh ble.sh-airline-themes; do
+        if ! docker cp "$id:/${pkg}_$FULL_VERSION.deb" - > "./${pkg}_$FULL_VERSION.deb"; then
+            echo "❌ Failed to extract $pkg .deb package"
             return 1
         fi
 
-        id="$(docker create "blesh-$dist-$ARCH")"
-        for pkg in ble.sh ble.sh-airline-themes; do
-            if ! docker cp "$id:/${pkg}_$FULL_VERSION.deb" - > "./${pkg}_$FULL_VERSION.deb"; then
-                echo "❌ Failed to extract $pkg .deb package for $dist"
-                return 1
-            fi
-
-            if ! tar -xf "./${pkg}_$FULL_VERSION.deb"; then
-                echo "❌ Failed to extract $pkg .deb contents for $dist"
-                return 1
-            fi
-        done
+        if ! tar -xf "./${pkg}_$FULL_VERSION.deb"; then
+            echo "❌ Failed to extract $pkg .deb contents"
+            return 1
+        fi
     done
 
     # Clean up extracted directory
@@ -90,7 +88,7 @@ build_packages() {
     return 0
 }
 
-echo "🚀 Building ble.sh $BLESH_VERSION-$BUILD_VERSION for Debian..."
+echo "🚀 Building ble.sh $BLESH_VERSION-$BUILD_VERSION..."
 echo ""
 
 if ! build_packages; then
@@ -98,6 +96,6 @@ if ! build_packages; then
 fi
 
 echo ""
-echo "🎉 Debian packages built successfully!"
+echo "🎉 Packages built successfully!"
 echo "Generated packages:"
-ls -la ble.sh*~{bookworm,trixie,forky,sid}_all.deb
+ls -la ble.sh*~griffo_all.deb

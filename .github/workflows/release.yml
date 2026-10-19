@@ -32,7 +32,7 @@ jobs:
         run: LICENSE_REF="${BLESH_VERSION##*.}" ./validate_license.sh "$BLESH_VERSION"
 
       - name: Build ble.sh
-        run: ./build_debian.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }} && ./build_ubuntu.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }}
+        run: ./build_debian.sh ${{ inputs.blesh_version }} ${{ inputs.build_version }}
 
       - name: Upload Binary Artifacts
         uses: actions/upload-artifact@v4
